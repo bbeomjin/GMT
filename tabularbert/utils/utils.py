@@ -79,12 +79,12 @@ class CheckPoint:
             'penalty': config['fine-tuning']['training']['penalty']
         }
     
-    def _save_checkpoint(self, model, config):
+    def _save_checkpoint(self, discretizer, model, config):
         """Save checkpoint based on phase."""
         if self.phase == 'pretraining':
-            checkpoint = self._create_pretraining_checkpoint(model, config)
+            checkpoint = self._create_pretraining_checkpoint(discretizer, model, config)
         else:
-            checkpoint = self._create_finetuning_checkpoint(model, config)
+            checkpoint = self._create_finetuning_checkpoint(discretizer, model, config)
         
         torch.save(checkpoint, self.save_path)
     
