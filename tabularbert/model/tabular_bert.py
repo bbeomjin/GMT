@@ -824,7 +824,7 @@ class TabularBERTTrainer(nn.Module):
             raise FileNotFoundError(f"Checkpoint file not found: {save_path}")
         
         # Load the pretrained model configuration
-        config = torch.load(save_path)
+        config = torch.load(save_path, map_location=device)
         num_bins = config['discretizer']['num_bins']
         encoding_info = config['discretizer']['encoding_info']
         lamb = config['regularization_lambda']
@@ -1291,7 +1291,7 @@ class TabularBERTTrainer(nn.Module):
         if not os.path.exists(save_path):
             raise FileNotFoundError(f"Checkpoint file not found: {save_path}")
         
-        config = torch.load(save_path)
+        config = torch.load(save_path, map_location=device)
         
         # Load discretizer
         discretizer = UniformDiscretize(config['discretizer']['num_bins'], 
@@ -1334,7 +1334,7 @@ class TabularBERTPredictor:
         >>> predictions = predictor.predict(test_x, batch_size=4096)
     """
     def __init__(self, model, discretizer, device):
-        self.model = model
+        self.model = model.to(device)
         self.discretizer = discretizer
         self.device = device
 
@@ -1401,7 +1401,7 @@ class TabularBERTPredictor:
         if not os.path.exists(save_path):
             raise FileNotFoundError(f"Checkpoint file not found: {save_path}")
         
-        config = torch.load(save_path)
+        config = torch.load(save_path, map_location=device)
         
         # Load discretizer
         discretizer = UniformDiscretize(
