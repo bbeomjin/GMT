@@ -26,12 +26,10 @@ class CheckPoint:
         """Create checkpoint for pretraining phase."""
         return {
             'discretizer': {
+                'num_bins': config['data']['num_bins'],
+                'encoding_info': to_serializable(discretizer.encoding_info),
                 'bins': to_serializable(discretizer.bins),
                 'category_maps': to_serializable(discretizer.category_maps)
-            },
-            'data_config': {
-                'num_bins': config['data']['num_bins'],
-                'encoding_info': config['data']['encoding_info']
             },
             'model_state_dict': model.state_dict(),
             'model_config': {
@@ -50,12 +48,10 @@ class CheckPoint:
         """Create checkpoint for fine-tuning phase."""
         return {
             'discretizer': {
+                'num_bins': config['data']['num_bins'],
+                'encoding_info': to_serializable(discretizer.encoding_info),
                 'bins': to_serializable(discretizer.bins),
                 'category_maps': to_serializable(discretizer.category_maps)
-            },
-            'data_config': {
-                'num_bins': config['data']['num_bins'],
-                'encoding_info': config['data']['encoding_info']
             },
             'model_state_dict': model.state_dict(),
             'model_config': {
