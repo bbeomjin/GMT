@@ -1294,8 +1294,8 @@ class TabularBERTTrainer(nn.Module):
         config = torch.load(save_path)
         
         # Load discretizer
-        discretizer = UniformDiscretize(config['data']['num_bins'], 
-                                        config['data']['encoding_info'])
+        discretizer = UniformDiscretize(config['data_config']['num_bins'], 
+                                        config['data_config']['encoding_info'])
         discretizer.bins = config['discretizer']['bins']
         discretizer.category_maps = config['discretizer']['category_maps']
         
@@ -1405,8 +1405,8 @@ class TabularBERTPredictor:
         
         # Load discretizer
         discretizer = UniformDiscretize(
-            config['data']['num_bins'], 
-            config['data']['encoding_info']
+            config['data_config']['num_bins'], 
+            config['data_config']['encoding_info']
         )
         discretizer.bins = config['discretizer']['bins']
         discretizer.category_maps = config['discretizer']['category_maps']
