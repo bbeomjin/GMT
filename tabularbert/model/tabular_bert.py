@@ -840,7 +840,7 @@ class TabularBERTTrainer(nn.Module):
         # Load discretizer
         trainer.discretizer = UniformDiscretize(num_bins, encoding_info)
         trainer.discretizer.bins = config['discretizer']['bins']
-        trainer.discretizer.category_maps = config['discretizer']['category_map']
+        trainer.discretizer.category_maps = config['discretizer']['category_maps']
         
         # Load pretrained model
         trainer.model = TabularBERT(**config['model_config'])
@@ -1297,7 +1297,7 @@ class TabularBERTTrainer(nn.Module):
         discretizer = UniformDiscretize(config['data']['num_bins'], 
                                         config['data']['encoding_info'])
         discretizer.bins = config['discretizer']['bins']
-        discretizer.category_maps = config['discretizer']['category_map']
+        discretizer.category_maps = config['discretizer']['category_maps']
         
         # Load the pretrained model configuration
         pretrained = TabularBERT(**config['model_config']['tabular_bert'])
@@ -1409,7 +1409,7 @@ class TabularBERTPredictor:
             config['data']['encoding_info']
         )
         discretizer.bins = config['discretizer']['bins']
-        discretizer.category_maps = config['discretizer']['category_map']
+        discretizer.category_maps = config['discretizer']['category_maps']
         
         # Load the pretrained model configuration
         pretrained = TabularBERT(**config['model_config']['tabular_bert'])
