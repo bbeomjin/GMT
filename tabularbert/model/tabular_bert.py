@@ -659,7 +659,7 @@ class TabularBERTTrainer(nn.Module):
                 # Model checkpointing based on validation loss
                 current_loss = valid_metrics['risk']
                 if self.save:
-                    checkpoint(current_loss, self.model, self.config)
+                    checkpoint(current_loss, self.discretizer, self.model, self.config)
                 
                 # Progress reporting
                 self._log_epoch_progress(train_metrics['risk'], valid_metrics['risk'])
@@ -1087,9 +1087,9 @@ class TabularBERTTrainer(nn.Module):
                 # Model checkpointing based on validation loss
                 if self.save:
                     if metric is not None:
-                        checkpoint(valid_metrics['metric'], self.model, self.config)
+                        checkpoint(valid_metrics['metric'], self.discretizer, self.model, self.config)
                     else:
-                        checkpoint(valid_metrics['risk'], self.model, self.config)
+                        checkpoint(valid_metrics['risk'], self.discretizer, self.model, self.config)
                     
                 # Progress reporting
                 self._log_epoch_progress(train_metrics['risk'], valid_metrics['risk'],

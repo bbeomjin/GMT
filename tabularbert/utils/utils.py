@@ -89,7 +89,7 @@ class CheckPoint:
         
         torch.save(checkpoint, self.save_path)
     
-    def __call__(self, x, model, config):
+    def __call__(self, x, discretizer, model, config):
         should_save = False
         
         if self.loss is None:
@@ -103,7 +103,7 @@ class CheckPoint:
                 should_save = True
         
         if should_save:
-            self._save_checkpoint(model, config)
+            self._save_checkpoint(discretizer, model, config)
 
 
 
