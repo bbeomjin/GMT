@@ -109,7 +109,7 @@ class DiscretizeBase:
                     bins: List[float] | ArrayLike,
                     ) -> ArrayLike:
 
-        ids = np.digitize(x, bins = bins, right = False)
+        ids = np.digitize(x, bins=bins, right=False)
         # Bin index starts with 1
         return ids.astype(int) + 1
     

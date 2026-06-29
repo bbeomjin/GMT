@@ -21,7 +21,8 @@ from ..utils.utils import (
     CheckPoint, 
     EarlyStopping, 
     make_save_dir,
-    separate_decay_params
+    separate_decay_params,
+    to_serializable
 )
 from ..utils.data import (
     QuantileDiscretize, 
@@ -354,7 +355,7 @@ class TabularBERTTrainer(nn.Module):
         config_path = os.path.join(self.save_dir, 'config.json')
         
         # Create a serializable copy of the config
-        serializable_config = self._make_serializable(self.config.copy())
+        serializable_config = to_serializable(self.config.copy())
         
         try:
             with open(config_path, 'w') as f:
@@ -362,25 +363,6 @@ class TabularBERTTrainer(nn.Module):
         except Exception as e:
             warnings.warn(f"Could not save config to {config_path}: {e}")
     
-    def _make_serializable(self, obj):
-        """
-        Convert objects to JSON-serializable format.
-        
-        Handles numpy arrays, torch tensors, and other non-serializable objects.
-        """
-        if isinstance(obj, dict):
-            return {k: self._make_serializable(v) for k, v in obj.items()}
-        elif isinstance(obj, (list, tuple)):
-            return [self._make_serializable(item) for item in obj]
-        elif hasattr(obj, 'shape'):  # numpy arrays, torch tensors
-            return list(obj) if obj.size <= 100 else f"<{type(obj).__name__} shape={obj.shape}>"
-        elif isinstance(obj, nn.Module):
-            return str(obj)
-        elif hasattr(obj, '__dict__'):  # Custom objects
-            return str(obj)
-        else:
-            return obj
-
     def set_bert(self, 
                 embedding_dim: int=1024,
                 n_layers: int=3,

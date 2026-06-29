@@ -1,5 +1,6 @@
 import torch
 import os
+import numpy as np
 import warnings
 from torch.utils.tensorboard import SummaryWriter
 try:
@@ -25,8 +26,8 @@ class CheckPoint:
         """Create checkpoint for pretraining phase."""
         return {
             'discretizer': {
-                'bins': discretizer.bins,
-                'category_maps': discretizer.category_maps
+                'bins': to_serializable(discretizer.bins),
+                'category_maps': to_serializable(discretizer.category_maps)
             },
             'data_config': {
                 'num_bins': config['data']['num_bins'],
@@ -49,8 +50,8 @@ class CheckPoint:
         """Create checkpoint for fine-tuning phase."""
         return {
             'discretizer': {
-                'bins': discretizer.bins,
-                'category_maps': discretizer.category_maps
+                'bins': to_serializable(discretizer.bins),
+                'category_maps': to_serializable(discretizer.category_maps)
             },
             'data_config': {
                 'num_bins': config['data']['num_bins'],
@@ -259,3 +260,28 @@ def separate_decay_params(model, no_decay_names=None):
         else:
             decay.append(param)
     return decay, no_decay
+
+
+
+def to_serializable(obj):
+    """
+    Convert objects to serializable format.
+    
+    Handles numpy arrays, torch tensors, and other non-serializable objects.
+    """
+    if isinstance(obj, dict):
+        return {k: to_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [to_serializable(item) for item in obj]
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, np.generic):
+        return obj.item()
+    elif hasattr(obj, 'shape'):  # numpy arrays, torch tensors
+        return list(obj) if obj.size <= 100 else f"<{type(obj).__name__} shape={obj.shape}>"
+    elif isinstance(obj, torch.nn.Module):
+        return str(obj)
+    elif hasattr(obj, '__dict__'):  # Custom objects
+        return str(obj)
+    else:
+        return obj
