@@ -20,8 +20,8 @@ class DiscretizeBase:
     """
     
     def __init__(self, 
-                 num_bins: int = 10,
-                 encoding_info: Dict[str, Dict[str, int]] = None
+                 num_bins: int=10,
+                 encoding_info: Dict[str, Dict[str, int]]=None
                  ) -> None:
        
        # Default number of bins
@@ -87,16 +87,22 @@ class DiscretizeBase:
         
         # Getting cut-off values for binning
         bins = {}
+        category_maps = {}
         for j, (k, v) in enumerate(encoding_info.items()):
             if 'num_bins' in v.keys():
                 xx = x[:, j]
                 if np.issubdtype(xx.dtype, np.number) is not True:
                     xx = xx.astype(np.float64)
                 bins[k] = self._fit(xx, num_bins=v['num_bins'])
+            elif 'num_categories' in v.keys():
+                xx = x[:, j]
+                categories = np.sort(np.unique(xx))
+                category_maps[k] = {cat: idx + 1 for idx, cat in enumerate(categories)}
             else:
                 bins[k] = None        
         
         self.bins = bins
+        self.category_maps = category_maps
         
     def _discretize(self, 
                     x: ArrayLike,
@@ -106,12 +112,6 @@ class DiscretizeBase:
         ids = np.digitize(x, bins = bins, right = False)
         # Bin index starts with 1
         return ids.astype(int) + 1
-    
-    def _cat2int(self,
-                 x: ArrayLike
-                 ) -> ArrayLike:
-        codes = {k: v + 1 for v, k in enumerate(set(x))}
-        return np.array([codes[k] for k in x])
     
     def discretize(self, 
                    x: ArrayLike):
@@ -133,7 +133,8 @@ class DiscretizeBase:
                 bin_ids = self._discretize(x=xx, 
                                            bins=self.bins[k])
             elif 'num_categories' in v.keys():
-                bin_ids = self._cat2int(x=x[:, j])
+                codes = self.category_maps[k]
+                bin_ids = np.array([codes[val] for val in x[:, j]])
             else:
                 raise ValueError(
                     "The encoding information is not valid."

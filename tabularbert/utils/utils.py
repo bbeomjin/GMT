@@ -21,9 +21,13 @@ class CheckPoint:
         
         self.save_path = os.path.join(save_path, 'model_checkpoint.pt')
     
-    def _create_pretraining_checkpoint(self, model, config):
+    def _create_pretraining_checkpoint(self, discretizer, model, config):
         """Create checkpoint for pretraining phase."""
         return {
+            'discretizer': {
+                'bins': discretizer.bins,
+                'category_maps': discretizer.category_maps
+            },
             'data_config': {
                 'num_bins': config['data']['num_bins'],
                 'encoding_info': config['data']['encoding_info']
@@ -41,9 +45,17 @@ class CheckPoint:
             'penalty': config['pretraining']['training']['penalty']
         }
     
-    def _create_finetuning_checkpoint(self, model, config):
+    def _create_finetuning_checkpoint(self, discretizer, model, config):
         """Create checkpoint for fine-tuning phase."""
         return {
+            'discretizer': {
+                'bins': discretizer.bins,
+                'category_maps': discretizer.category_maps
+            },
+            'data_config': {
+                'num_bins': config['data']['num_bins'],
+                'encoding_info': config['data']['encoding_info']
+            },
             'model_state_dict': model.state_dict(),
             'model_config': {
                 'tabular_bert': {
