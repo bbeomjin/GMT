@@ -17,7 +17,7 @@ X = data.iloc[:, :-1].values
 y = data.iloc[:, -1].values
 y = pd.Categorical(y).codes.astype(int)
 
-train_X, test_X, train_labels, test_labels = train_test_split(X, y, train_size = 0.8, random_state = 0)
+train_X, test_X, train_labels, test_labels = train_test_split(X, y, train_size=0.8, random_state=0)
 train_X, valid_X, train_labels, valid_labels = train_test_split(train_X, train_labels, train_size=0.8, random_state=0)
 
 # Preprocessing

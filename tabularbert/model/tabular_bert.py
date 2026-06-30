@@ -21,7 +21,8 @@ from ..utils.utils import (
     CheckPoint, 
     EarlyStopping, 
     make_save_dir,
-    separate_decay_params
+    separate_decay_params,
+    to_serializable
 )
 from ..utils.data import (
     QuantileDiscretize, 
@@ -262,10 +263,6 @@ class TabularBERTTrainer(nn.Module):
         
         # Initialize discretizer and process data
         if x is not None:
-            # self.discretizer = QuantileDiscretize(
-            #     num_bins=num_bins, 
-            #     encoding_info=encoding_info
-            # )
             self.discretizer = UniformDiscretize(
                 num_bins=num_bins, 
                 encoding_info=encoding_info
@@ -358,7 +355,7 @@ class TabularBERTTrainer(nn.Module):
         config_path = os.path.join(self.save_dir, 'config.json')
         
         # Create a serializable copy of the config
-        serializable_config = self._make_serializable(self.config.copy())
+        serializable_config = to_serializable(self.config.copy())
         
         try:
             with open(config_path, 'w') as f:
@@ -366,25 +363,6 @@ class TabularBERTTrainer(nn.Module):
         except Exception as e:
             warnings.warn(f"Could not save config to {config_path}: {e}")
     
-    def _make_serializable(self, obj):
-        """
-        Convert objects to JSON-serializable format.
-        
-        Handles numpy arrays, torch tensors, and other non-serializable objects.
-        """
-        if isinstance(obj, dict):
-            return {k: self._make_serializable(v) for k, v in obj.items()}
-        elif isinstance(obj, (list, tuple)):
-            return [self._make_serializable(item) for item in obj]
-        elif hasattr(obj, 'shape'):  # numpy arrays, torch tensors
-            return list(obj) if obj.size <= 100 else f"<{type(obj).__name__} shape={obj.shape}>"
-        elif isinstance(obj, nn.Module):
-            return str(obj)
-        elif hasattr(obj, '__dict__'):  # Custom objects
-            return str(obj)
-        else:
-            return obj
-
     def set_bert(self, 
                 embedding_dim: int=1024,
                 n_layers: int=3,
@@ -627,7 +605,7 @@ class TabularBERTTrainer(nn.Module):
         
         # Define checkpoint
         if self.save:
-            checkpoint = CheckPoint(self.save_dir, phase = 'pretraining', max=False)
+            checkpoint = CheckPoint(self.save_dir, phase='pretraining', max=False)
         
         # Define optimizer
         if self.optimizer is None:
@@ -681,7 +659,7 @@ class TabularBERTTrainer(nn.Module):
                 # Model checkpointing based on validation loss
                 current_loss = valid_metrics['risk']
                 if self.save:
-                    checkpoint(current_loss, self.model, self.config)
+                    checkpoint(current_loss, self.discretizer, self.model, self.config)
                 
                 # Progress reporting
                 self._log_epoch_progress(train_metrics['risk'], valid_metrics['risk'])
@@ -690,7 +668,7 @@ class TabularBERTTrainer(nn.Module):
                 # current_loss = train_metrics['risk']
                 if self.save:
                     # checkpoint(current_loss, self.model, self.config)
-                    checkpoint._save_checkpoint(self.model, self.config)
+                    checkpoint._save_checkpoint(self.discretizer, self.model, self.config)
                 
                 # Training-only progress reporting
                 self._log_epoch_progress(train_metrics['risk'])
@@ -846,9 +824,9 @@ class TabularBERTTrainer(nn.Module):
             raise FileNotFoundError(f"Checkpoint file not found: {save_path}")
         
         # Load the pretrained model configuration
-        config = torch.load(save_path)
-        num_bins = config['data_config']['num_bins']
-        encoding_info = config['data_config']['encoding_info']
+        config = torch.load(save_path, map_location=device)
+        num_bins = config['discretizer']['num_bins']
+        encoding_info = config['discretizer']['encoding_info']
         lamb = config['regularization_lambda']
         penalty = config['penalty']
         
@@ -858,6 +836,13 @@ class TabularBERTTrainer(nn.Module):
         
         trainer.lamb = lamb
         trainer.penalty = penalty
+        
+        # Load discretizer
+        trainer.discretizer = UniformDiscretize(num_bins, encoding_info)
+        trainer.discretizer.bins = config['discretizer']['bins']
+        trainer.discretizer.category_maps = config['discretizer']['category_maps']
+        
+        # Load pretrained model
         trainer.model = TabularBERT(**config['model_config'])
         trainer.model.load_state_dict(config['model_state_dict'])
         trainer.model.to(device)
@@ -904,10 +889,6 @@ class TabularBERTTrainer(nn.Module):
                 raise ValueError("x is not provided.")
             bin_ids = self.bin_ids
         else:
-            # discretizer = QuantileDiscretize(
-            #     num_bins=num_bins, 
-            #     encoding_info=encoding_info
-            # )
             discretizer = UniformDiscretize(
                 num_bins=num_bins, 
                 encoding_info=encoding_info
@@ -1106,9 +1087,9 @@ class TabularBERTTrainer(nn.Module):
                 # Model checkpointing based on validation loss
                 if self.save:
                     if metric is not None:
-                        checkpoint(valid_metrics['metric'], self.model, self.config)
+                        checkpoint(valid_metrics['metric'], self.discretizer, self.model, self.config)
                     else:
-                        checkpoint(valid_metrics['risk'], self.model, self.config)
+                        checkpoint(valid_metrics['risk'], self.discretizer, self.model, self.config)
                     
                 # Progress reporting
                 self._log_epoch_progress(train_metrics['risk'], valid_metrics['risk'],
@@ -1129,7 +1110,7 @@ class TabularBERTTrainer(nn.Module):
                     #     checkpoint(train_metrics['metric'], self.model, self.config)
                     # else:
                     #     checkpoint(train_metrics['risk'], self.model, self.config)
-                    checkpoint._save_checkpoint(self.model, self.config)
+                    checkpoint._save_checkpoint(self.discretizer, self.model, self.config)
                 
                 # Training-only progress reporting
                 self._log_epoch_progress(train_metrics['risk'],
@@ -1310,15 +1291,135 @@ class TabularBERTTrainer(nn.Module):
         if not os.path.exists(save_path):
             raise FileNotFoundError(f"Checkpoint file not found: {save_path}")
         
+        config = torch.load(save_path, map_location=device)
+        
+        # Load discretizer
+        discretizer = UniformDiscretize(config['discretizer']['num_bins'], 
+                                        config['discretizer']['encoding_info'])
+        discretizer.bins = config['discretizer']['bins']
+        discretizer.category_maps = config['discretizer']['category_maps']
+        
         # Load the pretrained model configuration
-        config = torch.load(save_path)
         pretrained = TabularBERT(**config['model_config']['tabular_bert'])
         head = MLP(**config['model_config']['mlp_head'])
         model = DownstreamModel(pretrained, head)
         model.load_state_dict(config['model_state_dict'])
-        model.to(device)
-
+        # model.to(device)
+        predictor = TabularBERTPredictor(model, discretizer, device)
         print(f"Successfully loaded fine-tuned model from: {save_path}")
         
-        return model
+        return predictor
+        
+        
+
+class TabularBERTPredictor:
+    """
+    TabularBERTPredictor: Inference wrapper for fine-tuned TabularBERT models.
+    
+    This class combines a fine-tuned downstream model with the fitted discretizer
+    used during training. It accepts raw tabular input data, discretizes it into
+    bin indices, and runs mini-batch inference through the downstream model.
+    
+    Args:
+        model (DownstreamModel): Fine-tuned downstream model.
+        discretizer (DiscretizeBase): Fitted discretizer used to transform raw
+                                      tabular values into bin indices.
+        device (torch.device): Device used for model inference.
+    
+    Example:
+        >>> predictor = TabularBERTPredictor.from_finetuned(
+        ...     save_path="./fine-tuning/version0/model_checkpoint.pt",
+        ...     device=torch.device("cuda:0")
+        ... )
+        >>> predictions = predictor.predict(test_x, batch_size=4096)
+    """
+    def __init__(self, model, discretizer, device):
+        self.model = model.to(device)
+        self.discretizer = discretizer
+        self.device = device
+
+    def predict(self, x, batch_size=4096, return_numpy=True):
+        """
+        Predict outputs for raw tabular input data.
+        
+        Args:
+            x (ArrayLike): Raw tabular input data with shape
+                           (num_samples, num_features).
+            batch_size (int): Number of samples processed per inference batch.
+                              Default: 4096.
+            return_numpy (bool): Whether to return predictions as a NumPy array.
+                                 If False, returns a CPU torch.Tensor.
+                                 Default: True.
+        
+        Returns:
+            np.ndarray | torch.Tensor: Model predictions for all input samples.
+        """
+        self.model.eval()
+        outputs = []
+
+        with torch.inference_mode():
+            for start in range(0, len(x), batch_size):
+                batch_x = x[start:start + batch_size]
+
+                batch_bin_ids = self.discretizer.discretize(batch_x)
+                batch_bin_ids = torch.as_tensor(
+                    batch_bin_ids,
+                    dtype=torch.long,
+                    device=self.device
+                )
+                batch_pred = self.model(batch_bin_ids)
+                outputs.append(batch_pred.detach().cpu())
+
+        outputs = torch.cat(outputs, dim=0)
+
+        if return_numpy:
+            return outputs.numpy()
+        return outputs
+    
+    @classmethod                
+    def from_finetuned(cls, save_path, device):
+        """
+        Load a fine-tuned TabularBERT predictor from a checkpoint.
+        
+        This method restores both the fitted discretizer and the downstream
+        neural network from a fine-tuning checkpoint, then returns a predictor
+        that can run inference directly on raw tabular input data.
+        
+        Args:
+            save_path (str): Path to the fine-tuned model checkpoint file.
+            device (torch.device): Device used for model inference.
+        
+        Returns:
+            TabularBERTPredictor: Predictor containing the loaded downstream
+                                  model and fitted discretizer.
+        
+        Raises:
+            FileNotFoundError: If the checkpoint file doesn't exist.
+            ValueError: If the model configuration is incompatible.
+        """
+        
+        if not os.path.exists(save_path):
+            raise FileNotFoundError(f"Checkpoint file not found: {save_path}")
+        
+        config = torch.load(save_path, map_location=device)
+        
+        # Load discretizer
+        discretizer = UniformDiscretize(
+            config['discretizer']['num_bins'], 
+            config['discretizer']['encoding_info']
+        )
+        discretizer.bins = config['discretizer']['bins']
+        discretizer.category_maps = config['discretizer']['category_maps']
+        
+        # Load the pretrained model configuration
+        pretrained = TabularBERT(**config['model_config']['tabular_bert'])
+        head = MLP(**config['model_config']['mlp_head'])
+        model = DownstreamModel(pretrained, head)
+        model.load_state_dict(config['model_state_dict'])
+        
+        return cls(
+            model=model,
+            discretizer=discretizer,
+            device=device
+        )
         

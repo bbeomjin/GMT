@@ -1,5 +1,6 @@
 import torch
 import os
+import numpy as np
 import warnings
 from torch.utils.tensorboard import SummaryWriter
 try:
@@ -21,12 +22,14 @@ class CheckPoint:
         
         self.save_path = os.path.join(save_path, 'model_checkpoint.pt')
     
-    def _create_pretraining_checkpoint(self, model, config):
+    def _create_pretraining_checkpoint(self, discretizer, model, config):
         """Create checkpoint for pretraining phase."""
         return {
-            'data_config': {
+            'discretizer': {
                 'num_bins': config['data']['num_bins'],
-                'encoding_info': config['data']['encoding_info']
+                'encoding_info': to_serializable(discretizer.encoding_info),
+                'bins': to_serializable(discretizer.bins),
+                'category_maps': to_serializable(discretizer.category_maps)
             },
             'model_state_dict': model.state_dict(),
             'model_config': {
@@ -41,9 +44,15 @@ class CheckPoint:
             'penalty': config['pretraining']['training']['penalty']
         }
     
-    def _create_finetuning_checkpoint(self, model, config):
+    def _create_finetuning_checkpoint(self, discretizer, model, config):
         """Create checkpoint for fine-tuning phase."""
         return {
+            'discretizer': {
+                'num_bins': config['data']['num_bins'],
+                'encoding_info': to_serializable(discretizer.encoding_info),
+                'bins': to_serializable(discretizer.bins),
+                'category_maps': to_serializable(discretizer.category_maps)
+            },
             'model_state_dict': model.state_dict(),
             'model_config': {
                 'tabular_bert': {
@@ -67,16 +76,16 @@ class CheckPoint:
             'penalty': config['fine-tuning']['training']['penalty']
         }
     
-    def _save_checkpoint(self, model, config):
+    def _save_checkpoint(self, discretizer, model, config):
         """Save checkpoint based on phase."""
         if self.phase == 'pretraining':
-            checkpoint = self._create_pretraining_checkpoint(model, config)
+            checkpoint = self._create_pretraining_checkpoint(discretizer, model, config)
         else:
-            checkpoint = self._create_finetuning_checkpoint(model, config)
+            checkpoint = self._create_finetuning_checkpoint(discretizer, model, config)
         
         torch.save(checkpoint, self.save_path)
     
-    def __call__(self, x, model, config):
+    def __call__(self, x, discretizer, model, config):
         should_save = False
         
         if self.loss is None:
@@ -90,7 +99,7 @@ class CheckPoint:
                 should_save = True
         
         if should_save:
-            self._save_checkpoint(model, config)
+            self._save_checkpoint(discretizer, model, config)
 
 
 
@@ -247,3 +256,28 @@ def separate_decay_params(model, no_decay_names=None):
         else:
             decay.append(param)
     return decay, no_decay
+
+
+
+def to_serializable(obj):
+    """
+    Convert objects to serializable format.
+    
+    Handles numpy arrays, torch tensors, and other non-serializable objects.
+    """
+    if isinstance(obj, dict):
+        return {k: to_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [to_serializable(item) for item in obj]
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, np.generic):
+        return obj.item()
+    elif hasattr(obj, 'shape'):  # numpy arrays, torch tensors
+        return list(obj) if obj.size <= 100 else f"<{type(obj).__name__} shape={obj.shape}>"
+    elif isinstance(obj, torch.nn.Module):
+        return str(obj)
+    elif hasattr(obj, '__dict__'):  # Custom objects
+        return str(obj)
+    else:
+        return obj
