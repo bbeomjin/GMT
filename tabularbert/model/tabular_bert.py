@@ -501,6 +501,7 @@ class TabularBERTTrainer(nn.Module):
               random_token_prob: float=0.15,
               unchanged_token_prob: float=0.15,
               ignore_index: int=-100,
+              patience: int=None,
               num_workers: int=0,
               ) -> None:
         """
@@ -516,6 +517,7 @@ class TabularBERTTrainer(nn.Module):
             random_token_prob (float): Probability of replacing tokens with random values. Default: 0.15
             unchanged_token_prob (float): Probability of keeping original tokens unchanged. Default: 0.15
             ignore_index (int): Index to ignore in loss calculation. Default: -100
+            patience (int): Early stopping patience. Default: None
             num_workers (int): Number of subprocesses to use for data loading. Default: 0
         """
         # Update training configuration
@@ -532,6 +534,7 @@ class TabularBERTTrainer(nn.Module):
                     'unchanged_token_prob': unchanged_token_prob
                 },
                 'ignore_index': ignore_index,
+                'patience': patience,
                 'num_workers': num_workers
             }
             # Save updated configuration before training starts
@@ -607,6 +610,10 @@ class TabularBERTTrainer(nn.Module):
         if self.save:
             checkpoint = CheckPoint(self.save_dir, phase='pretraining', max=False)
         
+        # Define early stopping
+        if patience is not None:
+            early_stopping = EarlyStopping(patience=patience, mode='max')
+        
         # Define optimizer
         if self.optimizer is None:
             warnings.warn(
@@ -657,21 +664,24 @@ class TabularBERTTrainer(nn.Module):
                 )
                 
                 # Model checkpointing based on validation loss
-                current_loss = valid_metrics['risk']
                 if self.save:
-                    checkpoint(current_loss, self.discretizer, self.model, self.config)
+                    checkpoint(valid_metrics['total_risk'], self.discretizer, self.model, self.config)
                 
                 # Progress reporting
-                self._log_epoch_progress(train_metrics['risk'], valid_metrics['risk'])
+                self._log_epoch_progress(train_metrics['total_risk'], valid_metrics['total_risk'])
+                
+                if patience is not None:
+                    stop = early_stopping(valid_metrics['total_risk'])
+                    if stop:
+                        print(f"Early stopping at epoch {epoch}")
+                        break
             else:
                 # No validation data - checkpoint on training loss
-                # current_loss = train_metrics['risk']
                 if self.save:
-                    # checkpoint(current_loss, self.model, self.config)
                     checkpoint._save_checkpoint(self.discretizer, self.model, self.config)
                 
                 # Training-only progress reporting
-                self._log_epoch_progress(train_metrics['risk'])
+                self._log_epoch_progress(train_metrics['total_risk'])
         
         print(f"\n Pretraining completed!")
         if self.save:
@@ -731,7 +741,8 @@ class TabularBERTTrainer(nn.Module):
             epoch += 1
         
         return {
-            'risk': pred_loss / num_batches,
+            'total_risk': total_loss / num_batches,
+            'pred_risk': pred_loss / num_batches,
             'global_step': epoch,
         }
     
@@ -784,7 +795,8 @@ class TabularBERTTrainer(nn.Module):
                 self.logger.log_scalar('Loss/Valid/Wasserstein', wasserstein_loss_val.item(), epoch)    
                 
         return {
-            'risk': pred_risk,
+            'total_risk': total_risk,
+            'pred_risk': pred_risk,
         }
     
     def _log_epoch_progress(self, train_loss, valid_loss=None, train_metric=None, valid_metric=None):
@@ -830,9 +842,9 @@ class TabularBERTTrainer(nn.Module):
         lamb = config['regularization_lambda']
         penalty = config['penalty']
         
-        trainer = cls(num_bins = num_bins,
-                      encoding_info = encoding_info,
-                      device = device)
+        trainer = cls(num_bins=num_bins,
+                      encoding_info=encoding_info,
+                      device=device)
         
         trainer.lamb = lamb
         trainer.penalty = penalty
@@ -1089,31 +1101,27 @@ class TabularBERTTrainer(nn.Module):
                     if metric is not None:
                         checkpoint(valid_metrics['metric'], self.discretizer, self.model, self.config)
                     else:
-                        checkpoint(valid_metrics['risk'], self.discretizer, self.model, self.config)
+                        checkpoint(valid_metrics['pred_risk'], self.discretizer, self.model, self.config)
                     
                 # Progress reporting
-                self._log_epoch_progress(train_metrics['risk'], valid_metrics['risk'],
+                self._log_epoch_progress(train_metrics['pred_risk'], valid_metrics['pred_risk'],
                                          train_metrics['metric'], valid_metrics['metric'])
                 
                 if patience is not None:
                     if metric is not None:
                         stop = early_stopping(valid_metrics['metric'])
                     else:
-                        stop = early_stopping(valid_metrics['risk'])
+                        stop = early_stopping(valid_metrics['pred_risk'])
                     if stop:
                         print(f"Early stopping at epoch {epoch}")
                         break
             else:
                 # No validation data - checkpoint on training loss
                 if self.save:
-                    # if metric is not None:
-                    #     checkpoint(train_metrics['metric'], self.model, self.config)
-                    # else:
-                    #     checkpoint(train_metrics['risk'], self.model, self.config)
                     checkpoint._save_checkpoint(self.discretizer, self.model, self.config)
                 
                 # Training-only progress reporting
-                self._log_epoch_progress(train_metrics['risk'],
+                self._log_epoch_progress(train_metrics['pred_risk'],
                                          train_metric = train_metrics['metric'])
         
         print(f"\n Fine-tuning completed!")
@@ -1172,7 +1180,8 @@ class TabularBERTTrainer(nn.Module):
             epoch += 1
         
         return {
-            'risk': pred_loss / num_batches,
+            'total_risk': total_loss / num_batches,
+            'pred_risk': pred_loss / num_batches,
             'metric': avg_metric if metric is not None else None,
             'global_step': epoch
         }    
@@ -1205,7 +1214,8 @@ class TabularBERTTrainer(nn.Module):
             regularization_loss = embed_penalty(self.model.pretrained.token_embedding.num_embedding.embedding.weight) if self.model.pretrained.token_embedding.num_embedding is not None else 0.0
             
             # Combined loss
-            risk = loss_val + regularization_loss
+            total_loss = (loss_val + regularization_loss).item()
+            pred_loss = loss_val.item()
             
             # Metrics tracking
             if metric is not None:
@@ -1213,13 +1223,14 @@ class TabularBERTTrainer(nn.Module):
                 
             # Log validation metrics
             if self.save:
-                self.logger.log_scalar('Loss/Valid/Total', risk.item(), epoch)
-                self.logger.log_scalar('Loss/Valid/Loss', loss_val.item(), epoch)
+                self.logger.log_scalar('Loss/Valid/Total', total_loss, epoch)
+                self.logger.log_scalar('Loss/Valid/Loss', pred_loss, epoch)
                 if metric is not None:
                     self.logger.log_scalar('Metric/Valid', m.item(), epoch)
         
         return {
-            'risk': loss_val.item(),
+            'total_risk': total_loss,
+            'pred_risk': pred_loss,
             'metric': m.item() if metric is not None else None,
         }
         
