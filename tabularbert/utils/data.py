@@ -1,8 +1,10 @@
 import pandas as pd
 import numpy as np
 import torch
-from typing import Dict, Tuple, List
+from pathlib import Path
+from typing import Dict, Tuple, List, Any
 from torch.utils.data import Dataset
+from sklearn.preprocessing import QuantileTransformer
 from .type import ArrayLike
 
 
@@ -337,6 +339,194 @@ class FinetuneDataset(Dataset):
     
     def __len__(self) -> int:
         return len(self.bin_ids)
+
+
+
+def prepare_benchmark_data(
+    data_dir: str | Path,
+    task_type: str
+) -> Dict[str, Any]:
+    """
+    Load and preprocess NumPy tabular data splits.
+    
+    The expected file names are ``X_num_train.npy``, ``X_num_val.npy``,
+    ``X_num_test.npy``, optional ``X_cat_train.npy``, ``X_cat_val.npy``,
+    ``X_cat_test.npy``, and ``y_train.npy``, ``y_val.npy``, ``y_test.npy``.
+    
+    Numeric features are transformed with the same ``QuantileTransformer``
+    settings used in the original preprocessing code. Categorical features are
+    encoded from training-split category maps and appended after numeric
+    features. The returned ``encoding_info`` marks those appended categorical
+    columns as categorical variables.
+    
+    Args:
+        data_dir (str | Path): Directory containing split ``.npy`` files.
+        task_type (str): Either ``"classification"`` or ``"regression"``.
+    
+    Returns:
+        Dict[str, Any]: Processed train/validation/test arrays, labels,
+                        encoding information, and fitted preprocessing metadata.
+    
+    Example:
+        >>> data = prepare_tabular_data(
+        ...     "data/adult",
+        ...     task_type="classification"
+        ... )
+        >>> train_x = data["train_x"]
+        >>> train_labels = data["train_labels"]
+        >>> encoding_info = data["encoding_info"]
+    """
+    data_dir = Path(data_dir)
+    split_file_names = {
+        'train': 'train',
+        'valid': 'val',
+        'test': 'test'
+    }
+    
+    if task_type not in {'classification', 'regression'}:
+        raise ValueError("task_type must be either 'classification' or 'regression'.")
+    
+    def ensure_2d(x: np.ndarray) -> np.ndarray:
+        if x.ndim == 1:
+            return x[:, None]
+        return x
+    
+    def to_python_scalar(value: Any) -> Any:
+        return value.item() if hasattr(value, 'item') else value
+    
+    def load_arrays(prefix: str, required: bool=True) -> Dict[str, np.ndarray] | None:
+        arrays = {}
+        missing_paths = []
+        
+        for split, file_split in split_file_names.items():
+            path = data_dir / f'{prefix}_{file_split}.npy'
+            if not path.exists():
+                missing_paths.append(path)
+                continue
+            arrays[split] = np.load(path)
+        
+        if len(arrays) == 0 and not required:
+            return None
+        
+        if len(arrays) != len(split_file_names):
+            missing = ', '.join(str(path) for path in missing_paths)
+            raise FileNotFoundError(f"Missing split file(s): {missing}")
+        
+        return arrays
+    
+    def encode_categorical(
+        x: np.ndarray,
+        category_maps: List[Dict[Any, int]]
+    ) -> np.ndarray:
+        encoded_columns = []
+        
+        for col, category_map in enumerate(category_maps):
+            values = x[:, col]
+            unknown = [
+                value for value in np.unique(values)
+                if to_python_scalar(value) not in category_map
+            ]
+            if len(unknown) > 0:
+                raise ValueError(
+                    f"Unknown category values found in categorical column {col}: {unknown}"
+                )
+            
+            encoded_columns.append(
+                np.array([
+                    category_map[to_python_scalar(value)]
+                    for value in values
+                ])
+            )
+        
+        return np.stack(encoded_columns, axis=1)
+    
+    numeric = load_arrays('X_num', required=False)
+    categorical = load_arrays('X_cat', required=False)
+    labels = load_arrays('y')
+    
+    if numeric is None and categorical is None:
+        raise FileNotFoundError(
+            "At least one of X_num_*.npy or X_cat_*.npy files must exist."
+        )
+    
+    scaler = None
+    if numeric is not None:
+        scaler = QuantileTransformer(
+            n_quantiles=max(min(numeric['train'].shape[0] // 30, 1000), 10),
+            output_distribution='uniform',
+            subsample=int(1e9)
+        )
+        scaler.fit(numeric['train'])
+        numeric = {
+            split: scaler.transform(values)
+            for split, values in numeric.items()
+        }
+    
+    category_maps = None
+    if categorical is not None:
+        categorical = {
+            split: ensure_2d(values)
+            for split, values in categorical.items()
+        }
+        train_cat_x = categorical['train']
+        category_maps = [
+            {to_python_scalar(value): idx
+             for idx, value in enumerate(np.unique(train_cat_x[:, col]))}
+            for col in range(train_cat_x.shape[1])
+        ]
+        categorical = {
+            split: encode_categorical(values, category_maps)
+            for split, values in categorical.items()
+        }
+    
+    def combine_features(split: str) -> np.ndarray:
+        if numeric is not None and categorical is not None:
+            return np.concatenate((numeric[split], categorical[split]), axis=1)
+        if numeric is not None:
+            return numeric[split]
+        return categorical[split]
+    
+    train_x = combine_features('train')
+    valid_x = combine_features('valid')
+    test_x = combine_features('test')
+    
+    num_features = 0 if numeric is None else numeric['train'].shape[1]
+    cat_features = 0 if categorical is None else categorical['train'].shape[1]
+    encoding_info = {
+        num_features + col: 'categorical'
+        for col in range(cat_features)
+    }
+    
+    target_mean = None
+    target_sd = None
+    if task_type == 'classification':
+        train_labels = labels['train']
+        valid_labels = labels['valid']
+        test_labels = labels['test']
+    else:
+        target_mean = labels['train'].mean()
+        target_sd = labels['train'].std()
+        if target_sd == 0:
+            target_sd = 1.0
+        
+        train_labels = (labels['train'] - target_mean) / target_sd
+        valid_labels = (labels['valid'] - target_mean) / target_sd
+        test_labels = (labels['test'] - target_mean) / target_sd
+        train_labels = ensure_2d(train_labels)
+        valid_labels = ensure_2d(valid_labels)
+        test_labels = ensure_2d(test_labels)
+    
+    return {
+        'train_x': train_x,
+        'valid_x': valid_x,
+        'test_x': test_x,
+        'train_labels': train_labels,
+        'valid_labels': valid_labels,
+        'test_labels': test_labels,
+        'encoding_info': encoding_info,
+        'target_mean': target_mean,
+        'target_sd': target_sd
+    }
 
 
 
