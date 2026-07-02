@@ -8,39 +8,28 @@ This repository provides the official implementation of **TabularBERT**, a Trans
 
 ## Installation
 
-- Requirements: See `requirements.txt`
+Clone the repository and install the package:
 
-#### Method 1: Install from Source (Recommended)
+```bash
+git clone https://github.com/bbeomjin/tabularbert.git
+cd tabularbert
+pip install -e .
+```
 
-1. Download the package source from GitHub:
-   ```bash
-   git clone https://github.com/bbeomjin/tabularbert.git
-   ```
+The required packages are listed in `requirements.txt`
 
-2. Navigate to the package directory:
-   ```bash
-   cd tabularbert
-   ```
 
-3. Install the package locally:
-   ```bash
-   pip install .
-   ```
+## Datasets
 
-#### Method 2: Install from ZIP Archive
+This repository does not include or redistribute the benchmark datasets.
 
-1. Download the ZIP file from GitHub:
-   - Click "`Code`" & "`Download ZIP`"
+To reproduce our experiments, please download the corresponding processed datasets from one of the following repositories:
+- https://github.com/jyansir/t2g-former
+- https://github.com/yandex-research/rtdl-revisiting-models
+- https://github.com/yandex-research/rtdl-num-embeddings
 
-2. Unzip the package file and navigate to the package directory:
-   ```bash
-   cd tabularbert-main
-   ```
+Users are responsible for complying with the licenses and terms of the original dataset providers.
 
-3. Install from files locally:
-   ```bash
-   pip install -e .
-   ```
 
 ## Quick Start
 
@@ -51,28 +40,38 @@ import pandas as pd
 import torch
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import QuantileTransformer
-from tabularbert import TabularBERTTrainer
+
+from tabularbert import TabularBERTTrainer, TabularBERTPredictor
+from tabularbert.utils.metrics import ClassificationError, RMSE
+
+# Set task: "classification" or "regression"
+task = "classification"
+
+# Set device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Load your tabular data
 data = pd.read_csv("your_dataset.csv")
 X = data.iloc[:, :-1].values
 y = data.iloc[:, -1].values
 
-# Split and preprocess data
+# Split data
 train_X, test_X, train_y, test_y = train_test_split(X, y, train_size=0.8, random_state=0)
 
 # Scale features
-scaler = QuantileTransformer(n_quantiles=10000, output_distribution='uniform')
+scaler = QuantileTransformer(n_quantiles=max(min(train_X.shape[0] // 30, 1000), 10),
+                             output_distribution='uniform')
 train_X_scaled = scaler.fit_transform(train_X)
+test_X_scaled = scaler.transform(test_X)
 
 # Initialize TabularBERT trainer
 trainer = TabularBERTTrainer(
     x=train_X_scaled,
     num_bins=50,
-    device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device=device
 )
 
-# Setup directories and logging
+# Setup directories and logging for pretraining
 trainer.setup_directories_and_logging(
     save_dir='./pretraining',
     phase='pretraining',
@@ -81,6 +80,25 @@ trainer.setup_directories_and_logging(
 
 # Start pretraining
 trainer.pretrain()
+
+# Setup directories and logging for fine-tuning
+trainer.setup_directories_and_logging(
+    save_dir='./fine-tuning',
+    phase='fine-tuning',
+    project_name='My TabularBERT Project'
+)
+
+# Start fine-tuning
+trainer.finetune(
+   x=train_X_scaled,
+   y=train_y,
+   criterion=torch.nn.CrossEntropyLoss() if task == 'classification' else torch.nn.MSELoss(),
+   metric=ClassificationError() if task == 'classification' else RMSE()
+)
+
+# Prediction
+predictor = TabularBERTPredictor(model=trainer.model, discretizer=trainer.discretizer, device=device)
+predictions = predictor.predict(test_X_scaled)
 ```
 
 - For more detailed documentation and advanced usage examples, please refer to: `example.py`
