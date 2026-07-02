@@ -45,7 +45,10 @@ class DiscretizeBase:
        
        # Specific binning information
        self.encoding_info = encoding_info
-       
+    
+    def _category_key(self, value):
+        return value.item() if isinstance(value, np.generic) else value
+    
     def _fit(self,
              x: ArrayLike,
              num_bins: int,
@@ -99,7 +102,9 @@ class DiscretizeBase:
             elif 'num_categories' in v.keys():
                 xx = x[:, j]
                 categories = np.sort(np.unique(xx))
-                category_maps[k] = {cat: idx + 1 for idx, cat in enumerate(categories)}
+                category_maps[k] = {
+                    self._category_key(cat): idx + 1 for idx, cat in enumerate(categories)
+                }
             else:
                 bins[k] = None        
         
@@ -136,7 +141,7 @@ class DiscretizeBase:
                                            bins=self.bins[k])
             elif 'num_categories' in v.keys():
                 codes = self.category_maps[k]
-                bin_ids = np.array([codes[val] for val in x[:, j]])
+                bin_ids = np.array([codes[self._category_key(val)] for val in x[:, j]])
             else:
                 raise ValueError(
                     "The encoding information is not valid."

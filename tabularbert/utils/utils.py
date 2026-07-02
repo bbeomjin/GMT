@@ -266,7 +266,7 @@ def to_serializable(obj):
     Handles numpy arrays, torch tensors, and other non-serializable objects.
     """
     if isinstance(obj, dict):
-        return {k: to_serializable(v) for k, v in obj.items()}
+        return {to_serializable(k): to_serializable(v) for k, v in obj.items()}
     elif isinstance(obj, (list, tuple)):
         return [to_serializable(item) for item in obj]
     elif isinstance(obj, np.ndarray):
