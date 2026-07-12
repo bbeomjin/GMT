@@ -1,0 +1,21 @@
+{
+    "dataset_name": "AD",
+    "data_path": "./data/adult",
+    "task_type": "classification",
+    "output_dim": 2,
+    "batch_size": 512,
+    "patience": 100,
+    "output_dir": "./results/AD",
+    "lamb": 128,
+    "embedding_dim": 32,
+    "n_layers": 5,
+    "n_heads": 4,
+    "fine_tuning_penalty": "squaredL2",
+    "pretraining_dropout": 0.38198356350667356,
+    "fine_tuning_dropout": 0.3486526224151018,
+    "weight_decay": 9.543828294158716e-08,
+    "head_n_hidden_layers": 3,
+    "fine_tuning_lr": 2.8819413387381275e-05,
+    "mode": "add",
+    "fine_tuning_repeats": 20
+}

@@ -1,0 +1,21 @@
+{
+    "dataset_name": "EY",
+    "data_path": "./data/eye",
+    "task_type": "classification",
+    "output_dim": 3,
+    "batch_size": 256,
+    "patience": 100,
+    "output_dir": "./results/EY",
+    "lamb": 64,
+    "embedding_dim": 256,
+    "n_layers": 4,
+    "n_heads": 2,
+    "fine_tuning_penalty": "squaredL2",
+    "pretraining_dropout": 0.46807089022506193,
+    "fine_tuning_dropout": 0.19155959296893046,
+    "weight_decay": 2.379330491412589e-08,
+    "head_n_hidden_layers": 1,
+    "fine_tuning_lr": 0.00018555267279866304,
+    "mode": "add",
+    "fine_tuning_repeats": 20
+}

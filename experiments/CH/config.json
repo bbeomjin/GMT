@@ -1,0 +1,21 @@
+{
+    "dataset_name": "CH",
+    "data_path": "./data/churn",
+    "task_type": "classification",
+    "output_dim": 2,
+    "batch_size": 256,
+    "patience": 100,
+    "output_dir": "./results/CH",
+    "lamb": 4096,
+    "embedding_dim": 128,
+    "n_layers": 2,
+    "n_heads": 8,
+    "fine_tuning_penalty": "squaredL2",
+    "pretraining_dropout": 0.21464515996416916,
+    "fine_tuning_dropout": 3.744467e-08,
+    "weight_decay": 3.314760935917225e-06,
+    "head_n_hidden_layers": 1,
+    "fine_tuning_lr": 0.0001048102156840663,
+    "mode": "concat",
+    "fine_tuning_repeats": 20
+}

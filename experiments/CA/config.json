@@ -1,0 +1,21 @@
+{
+    "dataset_name": "CA",
+    "data_path": "./data/california",
+    "task_type": "regression",
+    "output_dim": 1,
+    "batch_size": 512,
+    "patience": 100,
+    "output_dir": "./results/CA",
+    "lamb": 2048,
+    "embedding_dim": 256,
+    "n_layers": 3,
+    "n_heads": 1,
+    "fine_tuning_penalty": "squaredL2",
+    "pretraining_dropout": 0.16222996415647822,
+    "fine_tuning_dropout": 0.2819232328679253,
+    "weight_decay": 1.431150123440665e-08,
+    "head_n_hidden_layers": 1,
+    "fine_tuning_lr": 1.935317532554052e-05,
+    "mode": "concat",
+    "fine_tuning_repeats": 20
+}

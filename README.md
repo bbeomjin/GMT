@@ -23,10 +23,8 @@ The required packages are listed in `requirements.txt`
 
 This repository does not include or redistribute the benchmark datasets.
 
-To reproduce our experiments, please download the corresponding processed datasets from one of the following repositories:
+To reproduce our experiments, please download the corresponding processed datasets from the following repository:
 - https://github.com/jyansir/t2g-former
-- https://github.com/yandex-research/rtdl-revisiting-models
-- https://github.com/yandex-research/rtdl-num-embeddings
 
 Users are responsible for complying with the licenses and terms of the original dataset providers.
 

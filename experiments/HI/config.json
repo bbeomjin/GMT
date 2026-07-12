@@ -1,0 +1,21 @@
+{
+    "dataset_name": "HI",
+    "data_path": "./data/higgs-small",
+    "task_type": "classification",
+    "output_dim": 2,
+    "batch_size": 1024,
+    "patience": 100,
+    "output_dir": "./results/HI",
+    "lamb": 256,
+    "embedding_dim": 512,
+    "n_layers": 5,
+    "n_heads": 8,
+    "fine_tuning_penalty": "squaredL2",
+    "pretraining_dropout": 0.12818745824056493,
+    "fine_tuning_dropout": 0.30117518988025516,
+    "weight_decay": 7.506021714383806e-05,
+    "head_n_hidden_layers": 5,
+    "fine_tuning_lr": 5.361355644951131e-05,
+    "mode": "concat",
+    "fine_tuning_repeats": 20
+}

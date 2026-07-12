@@ -1,0 +1,21 @@
+{
+    "dataset_name": "JA",
+    "data_path": "./data/jannis",
+    "task_type": "classification",
+    "output_dim": 4,
+    "batch_size": 1024,
+    "patience": 100,
+    "output_dir": "./results/JA",
+    "lamb": 32,
+    "embedding_dim": 256,
+    "n_layers": 4,
+    "n_heads": 8,
+    "fine_tuning_penalty": "L2",
+    "pretraining_dropout": 0.3289044142023188,
+    "fine_tuning_dropout": 0.27527492675023485,
+    "weight_decay": 2.6146865287513253e-07,
+    "head_n_hidden_layers": 1,
+    "fine_tuning_lr": 1.683301159595558e-05,
+    "mode": "add",
+    "fine_tuning_repeats": 20
+}

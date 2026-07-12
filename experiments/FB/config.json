@@ -1,0 +1,21 @@
+{
+    "dataset_name": "FB",
+    "data_path": "./data/fb-comments",
+    "task_type": "regression",
+    "output_dim": 1,
+    "batch_size": 1024,
+    "patience": 100,
+    "output_dir": "./results/FB",
+    "lamb": 64,
+    "embedding_dim": 256,
+    "n_layers": 5,
+    "n_heads": 8,
+    "fine_tuning_penalty": "L2",
+    "pretraining_dropout": 0.012234273398208446,
+    "fine_tuning_dropout": 0.33936974001963754,
+    "weight_decay": 0.004355578118549262,
+    "head_n_hidden_layers": 1,
+    "fine_tuning_lr": 1.186013777025956e-05,
+    "mode": "concat",
+    "fine_tuning_repeats": 20
+}

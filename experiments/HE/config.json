@@ -1,0 +1,21 @@
+{
+    "dataset_name": "HE",
+    "data_path": "./data/helena",
+    "task_type": "classification",
+    "output_dim": 100,
+    "batch_size": 512,
+    "patience": 100,
+    "output_dir": "./results/HE",
+    "lamb": 4096,
+    "embedding_dim": 256,
+    "n_layers": 3,
+    "n_heads": 8,
+    "fine_tuning_penalty": "squaredL2",
+    "pretraining_dropout": 0.2783269187896529,
+    "fine_tuning_dropout": 0.1991810146334616,
+    "weight_decay": 0.009945387237950262,
+    "head_n_hidden_layers": 1,
+    "fine_tuning_lr": 1.6196013915315442e-05,
+    "mode": "add",
+    "fine_tuning_repeats": 20
+}

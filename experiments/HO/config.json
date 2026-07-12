@@ -1,0 +1,21 @@
+{
+    "dataset_name": "HO",
+    "data_path": "./data/house",
+    "task_type": "regression",
+    "output_dim": 1,
+    "batch_size": 512,
+    "patience": 100,
+    "output_dir": "./results/HO",
+    "lamb": 128,
+    "embedding_dim": 64,
+    "n_layers": 3,
+    "n_heads": 8,
+    "fine_tuning_penalty": "squaredL2",
+    "pretraining_dropout": 0.1003471287,
+    "fine_tuning_dropout": 0.1142336549720657,
+    "weight_decay": 1.375848969293863e-08,
+    "head_n_hidden_layers": 0,
+    "fine_tuning_lr": 3.452359422488248e-05,
+    "mode": "add",
+    "fine_tuning_repeats": 20
+}

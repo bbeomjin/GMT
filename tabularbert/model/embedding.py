@@ -63,8 +63,6 @@ class TokenEmbedding(nn.Module):
             pass
         elif mode == 'concat':
             self.proj = nn.Linear(2 * embedding_dim, embedding_dim)
-            nn.init.normal_(self.proj.weight, mean=0, std=0.02)
-            nn.init.zeros_(self.proj.bias)
         else:
             raise ValueError("mode must be add or concat")
         
@@ -99,7 +97,7 @@ class TokenEmbedding(nn.Module):
         
         # Apply layer norm and dropout
         embeddings = self.embedding_layernorm(embeddings)
-        # embeddings = self.embedding_dropout(embeddings)
+        embeddings = self.embedding_dropout(embeddings)
         
         return embeddings
 
@@ -179,7 +177,7 @@ class PositionalEmbedding(nn.Module):
     def _init_weights(self):
         # The standard deviation of the initial weights is set to be less than 
         # that of the bin embeddings to prevent dominance of positional information.
-        nn.init.normal_(self.embedding.weight, mean=0.0, std=0.75)
+        nn.init.normal_(self.embedding.weight, mean=0.0, std=0.5)
         
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """

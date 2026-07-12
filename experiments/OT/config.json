@@ -1,0 +1,21 @@
+{
+    "dataset_name": "OT",
+    "data_path": "./data/otto",
+    "task_type": "classification",
+    "output_dim": 9,
+    "batch_size": 512,
+    "patience": 100,
+    "output_dir": "./results/OT",
+    "lamb": 128,
+    "embedding_dim": 64,
+    "n_layers": 4,
+    "n_heads": 8,
+    "fine_tuning_penalty": "squaredL2",
+    "pretraining_dropout": 0.09203437372879669,
+    "fine_tuning_dropout": 0.41159004631904034,
+    "weight_decay": 1.659932268726054e-08,
+    "head_n_hidden_layers": 0,
+    "fine_tuning_lr": 2.5356876138235684e-05,
+    "mode": "concat",
+    "fine_tuning_repeats": 20
+}
